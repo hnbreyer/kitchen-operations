@@ -1,0 +1,52 @@
+{
+  "name": "kitchen-operations",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "prisma generate && next dev --webpack",
+    "build": "prisma generate && next build --webpack",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "npm run db:generate && npm run db:migrate && npm run db:seed",
+    "test": "node scripts/test-db.mjs",
+    "test:browser": "playwright test",
+    "test:db": "node scripts/test-db.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:reference-prices": "tsx prisma/update-reference-prices.ts",
+    "db:seed:financial": "tsx prisma/seed-financial-examples.ts --development-examples"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "dotenv": "^18.0.9",
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/postcss": "^4.3.4",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.10",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4.3.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  },
+  "type": "module"
+}

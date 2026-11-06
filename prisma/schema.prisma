@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum OperationType {
+  RETREAT
+  CITY_SERVICE
+  PRIVATE_EVENT
+}
+
+enum OperationStatus {
+  DRAFT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum MeasurementUnit {
+  GRAM
+  MILLILITER
+  EACH
+}
+
+model Location {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  address     String?
+  operations  Operation[]
+}
+
+model Operation {
+  id                   String                   @id @default(cuid())
+  name                 String
+  type                 OperationType
+  startDate            DateTime
+  endDate              DateTime
+  mealPlan             OperationMealPlan?
+  purchases            Purchase[]
+  shoppingList         ShoppingList?
+  substitutions        IngredientSubstitution[]
+  stockEstimates       AvailableStock[]
+  locationId           String
+  location             Location                 @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  status               OperationStatus          @default(DRAFT)
+  expectedDiners       Int?
+  billableParticipants Int?
+  expectedStaffDiners  Int?
+  additionalMealBuffer Int?
+  staffDiscountPercent Int?
+  notes                String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  @@index([startDate])
+  @@index([type, startDate])
+  @@index([status, endDate])
+  @@index([locationId])
+}
+
+model Ingredient {
+  id                       String                   @id @default(cuid())
+  name                     String                   @unique
+  normalizedName           String                   @unique
+  displayUnit              String                   @default("GRAM")
+  notes                    String?
+  baseUnit                 MeasurementUnit
+  referencePriceCentavos   Int?
+  referencePriceUnit       String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  recipes                  RecipeIngredient[]
+  purchaseItems            PurchaseItem[]
+  shoppingItems            ShoppingItem[]
+  stockEstimates           AvailableStock[]
+  originalSubstitutions    IngredientSubstitution[] @relation("OriginalIngredient")
+  replacementSubstitutions IngredientSubstitution[] @relation("ReplacementIngredient")
+}
+
+model Recipe {
+  id                   String             @id @default(cuid())
+  name                 String             @unique
+  description          String?
+  category             String?
+  preparationMinutes   Int?
+  notes                String?
+  archivedAt           DateTime?
+  standardPortionYield Int
+  instructions         String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  ingredients          RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  recipeId      String
+  ingredientId  String
+  quantityMilli Int
+  unit          MeasurementUnit
+  recipe        Recipe          @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient      @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([recipeId, ingredientId])
+  @@index([ingredientId])
+}
+
+model MenuTemplate {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  notes        String?
+  scheduleJson String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model OperationMealPlan {
+  id                 String    @id @default(cuid())
+  operationId        String    @unique
+  operation          Operation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  sourceTemplateName String?
+  notes              String?
+  scheduleJson       String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+enum IngredientOwnership {
+  SCHOOL
+  BUSINESS
+}
+
+model IngredientSubstitution {
+  id                      String          @id @default(cuid())
+  operationId             String
+  operation               Operation       @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  originalIngredientId    String
+  originalIngredient      Ingredient      @relation("OriginalIngredient", fields: [originalIngredientId], references: [id], onDelete: Restrict)
+  replacementIngredientId String
+  replacementIngredient   Ingredient      @relation("ReplacementIngredient", fields: [replacementIngredientId], references: [id], onDelete: Restrict)
+  quantityMilli           BigInt
+  unit                    MeasurementUnit
+  notes                   String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@unique([operationId, originalIngredientId])
+  @@index([replacementIngredientId])
+}
+
+model AvailableStock {
+  id            String              @id @default(cuid())
+  ingredientId  String
+  ingredient    Ingredient          @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  ownership     IngredientOwnership
+  scopeKey      String
+  operationId   String?
+  operation     Operation?          @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  quantityMilli BigInt
+  unit          MeasurementUnit
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([scopeKey, ingredientId])
+  @@index([operationId])
+}
+
+model ShoppingList {
+  id                String              @id @default(cuid())
+  operationId       String              @unique
+  operation         Operation           @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  ownership         IngredientOwnership
+  organicRequired   Boolean
+  sourceFingerprint String
+  purchases         Purchase[]
+  items             ShoppingItem[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model ShoppingItem {
+  id                     String          @id @default(cuid())
+  listId                 String
+  list                   ShoppingList    @relation(fields: [listId], references: [id], onDelete: Restrict)
+  ingredientId           String
+  ingredient             Ingredient      @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  purchaseItems          PurchaseItem[]
+  ingredientName         String
+  unit                   MeasurementUnit
+  requiredMilli          BigInt
+  availableMilli         BigInt?
+  plannedMilli           BigInt
+  estimatedPriceCentavos Int?
+  priceUnit              String?
+  notes                  String?
+  purchased              Boolean         @default(false)
+  manual                 Boolean         @default(false)
+  excluded               Boolean         @default(false)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  @@unique([listId, ingredientId])
+  @@index([ingredientId])
+}
+
+model Purchase {
+  organicConfirmed Boolean                   @default(false)
+  id               String                    @id
+  requestHash      String
+  purchaseDate     DateTime
+  supplier         String
+  funding          IngredientOwnership
+  paymentSource    String
+  operationId      String?
+  operation        Operation?                @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  shoppingListId   String?
+  shoppingList     ShoppingList?             @relation(fields: [shoppingListId], references: [id], onDelete: Restrict)
+  totalCentavos    Int
+  notes            String?
+  receiptReference String?
+  finalized        Boolean                   @default(false)
+  items            PurchaseItem[]
+  allocations      ReimbursementAllocation[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([operationId, purchaseDate])
+  @@index([funding, purchaseDate])
+  @@index([shoppingListId])
+}
+
+model PurchaseItem {
+  id                String          @id @default(cuid())
+  purchaseId        String
+  purchase          Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  ingredientId      String
+  ingredient        Ingredient      @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  ingredientName    String
+  shoppingItemId    String?
+  shoppingItem      ShoppingItem?   @relation(fields: [shoppingItemId], references: [id], onDelete: Restrict)
+  quantityMilli     BigInt
+  unit              MeasurementUnit
+  priceCentavos     Int
+  priceUnit         String
+  lineTotalCentavos Int
+
+  @@unique([purchaseId, ingredientId])
+  @@index([ingredientId])
+  @@index([shoppingItemId])
+}
+
+model Reimbursement {
+  id            String                    @id
+  requestHash   String
+  paymentDate   DateTime
+  totalCentavos Int
+  notes         String?
+  finalized     Boolean                   @default(false)
+  allocations   ReimbursementAllocation[]
+  createdAt     DateTime                  @default(now())
+}
+
+model ReimbursementAllocation {
+  reimbursementId String
+  reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Restrict)
+  purchaseId      String
+  purchase        Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  amountCentavos  Int
+
+  @@id([reimbursementId, purchaseId])
+  @@index([purchaseId])
+}

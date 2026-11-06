@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local SQLite databases and browser test artifacts
+*.db
+*.db-*
+playwright-report/
+test-results/
+
+# Isolated Next.js browser-test build
+.next-playwright/
